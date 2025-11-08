@@ -16,10 +16,42 @@ import requests_cache
 import time
 import pandas as pd
 import random 
+import json
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+def fetch_epics(ig_service):
+    """
+    Min gamla kod som hämtar epics innan jag insåg att det går att gör via filen all_nodes.py
+    """
+    search_terms = ["EUR/USD", "Ether", "USA Tech100", "Tyskland 40", "Naturgas", "US Treasury Bond", "3-Month SOFR"]
+    #search_terms = pd.read_excel('ig_markets_marknader.xlsx', sheet_name="Blad2")['Namn']
+    
+    search_terms = pd.read_excel('ig_markets_marknader.xlsx', sheet_name="Norgate tickers")['Namn']
+    #search_terms = ["Australian Dollar", "British Pound", "Canadian Dollar", "Euro FX", "E-mini S&P 500", "Nasdaq 100"]
+    epics = []
+    markets_that_got_no_result = []
+    
+    for term in search_terms:
+        print("Söker efter", term)
+        df = ig_service.search_markets(term)
+        if len(df) > 0:
+            print(df)
+            filtered_df = df[(df['instrumentType'] == 'CURRENCIES') | (df['instrumentType'] == 'INDICES') | (df['instrumentType'] == 'COMMODITIES') | (df['instrumentType'] == 'RATES')]
+            for epic in filtered_df['epic']:
+                epics.append(epic)
+            print(filtered_df)
+            print(epics)
+            print("Antal epics i lista:", len(epics))
+            print("Sparar epics till Excel")
+            df_epics = pd.DataFrame(epics)
+            df_epics.to_excel("epics.xlsx")  
+        else:
+            markets_that_got_no_result.append(term)
+        time.sleep(random.randint(5, 15))
+    print(epics)
+    print("\nNorgate markets_that_got_no_result", markets_that_got_no_result)
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
@@ -66,40 +98,19 @@ def main():
     # print("working_orders:\n%s" % working_orders)
 
     print("")
-    ig_service.search
-    input("asdsad")
     
     epic = "IX.D.ASX.IFM.IP"  # US (SPY) - mini
     
     #print(ig_service.search_markets("EUR/USD"))
-    search_terms = ["EUR/USD", "Ether", "USA Tech100", "Tyskland 40", "Naturgas", "US Treasury Bond", "3-Month SOFR"]
-    #search_terms = pd.read_excel('ig_markets_marknader.xlsx', sheet_name="Blad2")['Namn']
     
-    search_terms = pd.read_excel('ig_markets_marknader.xlsx', sheet_name="Norgate tickers")['Namn']
-    #search_terms = ["Australian Dollar", "British Pound", "Canadian Dollar", "Euro FX", "E-mini S&P 500", "Nasdaq 100"]
-    epics = []
-    markets_that_got_no_result = []
-    
-    for term in search_terms:
-        print("Söker efter", term)
-        df = ig_service.search_markets(term)
-        if len(df) > 0:
-            print(df)
-            filtered_df = df[(df['instrumentType'] == 'CURRENCIES') | (df['instrumentType'] == 'INDICES') | (df['instrumentType'] == 'COMMODITIES') | (df['instrumentType'] == 'RATES')]
-            for epic in filtered_df['epic']:
-                epics.append(epic)
-            print(filtered_df)
-            print(epics)
-            print("Antal epics i lista:", len(epics))
-            print("Sparar epics till Excel")
-            df_epics = pd.DataFrame(epics)
-            df_epics.to_excel("epics.xlsx")  
-        else:
-            markets_that_got_no_result.append(term)
+    epics = pd.read_excel('epics.xlsx')['epic']
+    for epic in epics:
+        print(epic)
+        data = ig_service.fetch_market_by_epic(epic)
+        print(data)
+        print(json.dumps(data, indent=2, sort_keys=True))
         time.sleep(random.randint(5, 15))
-    print(epics)
-    print("\nNorgate markets_that_got_no_result", markets_that_got_no_result)
-    
+        
     
     resolution = "D"
     # see from pandas.tseries.frequencies import to_offset
