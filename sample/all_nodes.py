@@ -60,10 +60,28 @@ def get_session():
     ig_service.create_session(version="3")
     return ig_service
 
+def collect_epics_for_node(node_id, ig_service, store=None, prefix=""):
+    if store is None:
+        store = {}
+
+    sub_nodes = ig_service.fetch_sub_nodes_by_node(node_id)
+
+    # recurse into children
+    for child in sub_nodes["nodes"].to_dict("records"):
+        collect_epics_for_node(child["id"], ig_service, store, prefix + "  ")
+
+    # stash current node’s markets
+    for market in sub_nodes["markets"].to_dict("records"):
+        name = market["instrumentName"]
+        if market["expiry"] and market["expiry"] != "-":
+            name = f"{name} ({market['expiry']})"
+        store[name] = market["epic"]
+
+    return store
 
 if __name__ == "__main__":
-    display_top_level_nodes()
-    # display_all_epics()
+    #display_top_level_nodes()
+    #display_all_epics()
 
     """
     Weekend Markets [191926749]
@@ -115,5 +133,56 @@ if __name__ == "__main__":
     Options (Volatility Index) [56719751]
     Options on Metals, Energies [195913]
     """
-
-    # display_epics_for_node(195913)
+    nodes = [
+        {
+            "marknad": "Kryptovaluta",
+            "node_id": "668394"
+        },
+        { 
+            "marknad": "Index",
+            "node_id": "97601"
+        },
+        { 
+            "marknad": "Index (mini)",
+            "node_id": "264176"
+        },
+        { 
+            "marknad": "Forex",
+            "node_id": "195235"
+        },
+        { 
+            "marknad": "Valuta (mini)",
+            "node_id": "264139"
+        },
+        { 
+            "marknad": "Råvaror Metaller Energi",
+            "node_id": "101515"
+        },
+        { 
+            "marknad": "Råvaror Metaller Energi (mini)",
+            "node_id": "264151"
+        },
+        { 
+            "marknad": "Obligationer och Penningmarknad",
+            "node_id": "108092"
+        },
+        { 
+            "marknad": "Obligationer och Penningmarknad (mini) ",
+            "node_id": "264251"
+        }
+    ]
+    
+    #for node in nodes:
+    #    display_epics_for_node(node.get("node_id"))
+    
+    all_epics = {}
+    for node in nodes:
+        print("Collecting for node", node)
+        collect_epics_for_node(node["node_id"], ig_service=get_session(), store=all_epics)
+        print(all_epics)
+        
+    print(all_epics)
+    import pandas as pd
+    df = pd.DataFrame.from_dict(all_epics, orient="index", columns=["epic"]).reset_index()
+    df = df.rename(columns={"index": "market_name"})
+    df.to_excel("epics.xlsx")
