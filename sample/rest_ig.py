@@ -17,6 +17,7 @@ import time
 import pandas as pd
 import random 
 import json
+from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -52,6 +53,43 @@ def fetch_epics(ig_service):
         time.sleep(random.randint(5, 15))
     print(epics)
     print("\nNorgate markets_that_got_no_result", markets_that_got_no_result)
+
+def calculate_min_capital(data, target_risk = 0.2):
+    epic = data['instrument']['epic']
+    name = data['instrument']['name']
+    asset_class = data['instrument']['type']
+    expiry = data['instrument']['expiry']
+    minimum_contract = data["dealingRules"]["minDealSize"]["value"]
+    fx = data['instrument']['currencies'][0]['code']
+    current_price = data['snapshot']['offer']
+    multiplier = float(data['instrument']['valueOfOnePip'])
+    margin_pct = data['instrument']['marginDepositBands'][0]['margin'] / 100 
+    minimum_exposure = minimum_contract * current_price * multiplier
+    instrument_risk = 0.119 # TODO Hämta mha Norgate?
+    minimum_capital = (minimum_exposure * instrument_risk) / target_risk
+    minimum_capital_4_contracts = minimum_capital * 4
+    minimum_margin_4_contracts = minimum_capital_4_contracts * margin_pct
+    if expiry != "-":
+        product = "Future"
+    else:
+        product = "Cash"
+    
+    return {
+        "epic": epic,
+        "name": name,
+        "Product": product,
+        "Asset class": asset_class,
+        "FX": fx,
+        "Minimum contract": minimum_contract,
+        "Current Price": current_price,
+        "Multiplier": multiplier,
+        "Minimum Exposure": minimum_exposure,
+        "Instrument risk": instrument_risk,
+        "Target risk": target_risk,
+        "Minimum Capital": minimum_capital,
+        "Minimum Capital 4 contracts": minimum_capital_4_contracts,
+        "Minimum Margin 4 contracts": minimum_margin_4_contracts
+    }
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
@@ -104,13 +142,22 @@ def main():
     #print(ig_service.search_markets("EUR/USD"))
     
     epics = pd.read_excel('epics.xlsx')['epic']
+    min_capital_list = []
+    number_of_markets= len(epics)
     for epic in epics:
-        print(epic)
-        data = ig_service.fetch_market_by_epic(epic)
-        print(data)
+        data = ig_service.fetch_market_by_epic("IX.D.SPTRD.FWS1.IP")
+        #data = ig_service.fetch_market_details_extended(epic="IX.D.SPTRD.FWS1.IP", price_in_size_flag=True)
+        #data = ig_service.fetch_market_by_epic("CS.D.XLMUSD.CFD.IP")
+        #data = ig_service.fetch_market_by_epic(epic)
         print(json.dumps(data, indent=2, sort_keys=True))
-        time.sleep(random.randint(5, 15))
-        
+        min_capital_list.append(calculate_min_capital(data, target_risk=0.6))
+        #print(min_capital_list)
+        time.sleep(random.randrange(5, 15))
+        df = pd.DataFrame(min_capital_list)
+        df.to_excel('min_capital.xlsx', index=False)
+        percent_done = len(min_capital_list) / number_of_markets
+        print("Progress", round(percent_done / 100, 5), "%")
+        input("Continue?")
     
     resolution = "D"
     # see from pandas.tseries.frequencies import to_offset

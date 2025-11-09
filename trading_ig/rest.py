@@ -169,6 +169,11 @@ class IGService:
         "demo": "https://demo-api.ig.com/gateway/deal",
     }
 
+    D_NWTP_BASE_URL = {
+        "live": "https://deal.ig.com/nwtpdeal",
+        "demo": "https://demo-deal.ig.com/nwtpdeal",
+    }
+
     API_KEY = None
     IG_USERNAME = None
     IG_PASSWORD = None
@@ -199,6 +204,7 @@ class IGService:
         self._bucket_threads_run = False
         try:
             self.BASE_URL = self.D_BASE_URL[acc_type.lower()]
+            self.NWTP_BASE_URL = self.D_NWTP_BASE_URL[acc_type.lower()]
         except Exception:
             raise IGException(
                 "Invalid account type '%s', please provide LIVE or DEMO" % acc_type
@@ -1555,6 +1561,55 @@ class IGService:
         else:
             data = data["marketDetails"]
         return data
+
+    def fetch_market_details_extended(
+        self, epic, price_in_size_flag=False, session=None
+    ):
+        """
+        Returns extended instrument/dealing details from the /nwtpdeal API.
+
+        This endpoint powers the new IG web platform and provides additional fields
+        compared to /markets/{epic}, such as price ladders when the
+        ``price_in_size_flag`` is enabled.
+
+        :param epic: IG epic identifier
+        :type epic: str
+        :param price_in_size_flag: include price ladder sizes in the response
+        :type price_in_size_flag: bool
+        :param session: optional requests session (for caching)
+        :type session: requests.Session
+        :return: dict containing instrumentData, dealingRulesData, etc.
+        :rtype: dict
+        """
+
+        if not epic:
+            raise ValueError("epic must be provided")
+
+        self.non_trading_rate_limit_pause_or_pass()
+
+        request_session = self.crud_session._get_session(session)
+        previous_version = request_session.headers.get("VERSION")
+        request_session.headers.update({"VERSION": "3"})
+
+        url = f"{self.NWTP_BASE_URL}/v3/markets/details"
+        params = {
+            "epic": epic,
+            "priceInSizeFlag": str(bool(price_in_size_flag)).lower(),
+        }
+
+        response = request_session.get(url, params=params)
+
+        if previous_version is None:
+            request_session.headers.pop("VERSION", None)
+        else:
+            request_session.headers["VERSION"] = previous_version
+
+        if response.status_code != 200:
+            raise IGException(
+                f"HTTP error: {response.status_code} {response.text}"
+            )
+
+        return self.parse_response(response.text)
 
     def search_markets(self, search_term, session=None):
         """Returns all markets matching the search term"""
