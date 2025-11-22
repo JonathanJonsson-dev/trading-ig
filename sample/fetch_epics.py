@@ -40,10 +40,10 @@ def fetch_epics(ig_service):
     norgate_tickers = pd.read_excel('manuell_berakning_minimum_kapital.xlsx', sheet_name="Norgate tickers")['Code']
     epics = []
     markets_that_got_no_result = []
-    number_of_tickers_norgate = len(norgate_tickers)
+    number_of_search_terms = len(search_terms)
     counter = 0
     for term, ticker in zip(search_terms, norgate_tickers):
-        print("Söker efter", term, counter / number_of_tickers_norgate, "% Complete")
+        print("Söker efter", term, counter / number_of_search_terms, "% Complete")
         df = ig_service.search_markets(term)
         #df = ig_service.search_markets("Corn")
         if len(df) > 0:
