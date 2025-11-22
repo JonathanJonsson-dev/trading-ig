@@ -24,18 +24,26 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 def fetch_epics(ig_service):
-    """
-    Min gamla kod som hämtar epics innan jag insåg att det går att gör via filen all_nodes.py
+    """Collect IG epics for configured instruments and save them to Excel.
+
+    The function reads paired instrument names and Norgate tickers from the
+    ``manuell_berakning_minimum_kapital.xlsx`` workbook, searches the IG REST
+    API for each term via ``ig_service.search_markets``, filters the results to
+    tradable instrument classes, and writes the collected epic/name/ticker
+    mapping to ``epics.xlsx`` for later processing.
+
+    Args:
+        ig_service (IGService): Authenticated IG client with an active session.
     """
     #search_terms = ["EUR/USD", "Ether", "USA Tech100", "Tyskland 40", "Naturgas", "US Treasury Bond", "3-Month SOFR"]
-    search_terms = pd.read_excel('manuell_berakning_minimum_kapital.xlsx', sheet_name="Norgate tickers")['Namn']
+    search_terms = pd.read_excel('manuell_berakning_minimum_kapital.xlsx', sheet_name="Norgate tickers")['Name']
     norgate_tickers = pd.read_excel('manuell_berakning_minimum_kapital.xlsx', sheet_name="Norgate tickers")['Code']
     epics = []
     markets_that_got_no_result = []
-    search_terms = ["Corn", "Milk", "Lean Hogs", "Live Cattle", "TecDax"]
-    
+    number_of_tickers_norgate = len(norgate_tickers)
+    counter = 0
     for term, ticker in zip(search_terms, norgate_tickers):
-        print("Söker efter", term)
+        print("Söker efter", term, counter / number_of_tickers_norgate, "% Complete")
         df = ig_service.search_markets(term)
         #df = ig_service.search_markets("Corn")
         if len(df) > 0:
@@ -43,20 +51,23 @@ def fetch_epics(ig_service):
             filtered_df = df[(df['instrumentType'] == 'CURRENCIES') | (df['instrumentType'] == 'INDICES') | (df['instrumentType'] == 'COMMODITIES') | (df['instrumentType'] == 'RATES')]
             for _, row in filtered_df.iterrows():
                 epics.append({
-                    "name": row['instrumentName'],
                     "epic": row['epic'],
+                    "name": row['instrumentName'],
+                    "instrumentType": row["instrumentType"],
                     "norgate ticker": ticker
                     })
             print(filtered_df)
-            print(epics)
+            #print(epics)
             print("Antal epics i lista:", len(epics))
             print("Sparar epics till Excel")
             df_epics = pd.DataFrame(epics)
             df_epics.to_excel("epics.xlsx")  
-            input("Continue?")
+            #input("Continue?")
         else:
+            print("Hittade inte marknad:", term)
             markets_that_got_no_result.append(term)
         time.sleep(random.randint(5, 15))
+        counter += 1
     print(epics)
     print("\nNorgate markets_that_got_no_result", markets_that_got_no_result)
 
