@@ -49,23 +49,29 @@ def fetch_epics(ig_service):
         if len(df) > 0:
             print(df)
             filtered_df = df[(df['instrumentType'] == 'CURRENCIES') | (df['instrumentType'] == 'INDICES') | (df['instrumentType'] == 'COMMODITIES') | (df['instrumentType'] == 'RATES')]
-            for _, row in filtered_df.iterrows():
-                epics.append({
-                    "epic": row['epic'],
-                    "name": row['instrumentName'],
-                    "instrumentType": row["instrumentType"],
-                    "norgate ticker": ticker
-                    })
-            print(filtered_df)
-            #print(epics)
-            print("Antal epics i lista:", len(epics))
-            print("Sparar epics till Excel")
-            df_epics = pd.DataFrame(epics)
-            df_epics.to_excel("epics.xlsx")  
-            #input("Continue?")
+            if len(filtered_df) > 0:
+                for _, row in filtered_df.iterrows():
+                    epics.append({
+                        "epic": row['epic'],
+                        "name": row['instrumentName'],
+                        "instrumentType": row["instrumentType"],
+                        "norgate ticker": ticker
+                        })
+                print(filtered_df)
+                #print(epics)
+                print("Antal epics i lista:", len(epics))
+                print("Sparar epics till Excel")
+                df_epics = pd.DataFrame(epics)
+                df_epics.to_excel("epics.xlsx")  
+                #input("Continue?")
+            else:
+                print("Hittade inga terminer för marknad:", term)
+                markets_that_got_no_result.append(term)
+                print(markets_that_got_no_result) 
         else:
             print("Hittade inte marknad:", term)
             markets_that_got_no_result.append(term)
+            print(markets_that_got_no_result)
         time.sleep(random.randint(5, 15))
         counter += 1
     print(epics)
