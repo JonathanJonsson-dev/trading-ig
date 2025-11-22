@@ -43,7 +43,7 @@ def fetch_epics(ig_service):
     number_of_search_terms = len(search_terms)
     counter = 0
     for term, ticker in zip(search_terms, norgate_tickers):
-        print("Söker efter", term, counter / number_of_search_terms, "% Complete")
+        print("Söker efter", term, round(counter / number_of_search_terms * 100, 2) , "% Complete")
         df = ig_service.search_markets(term)
         #df = ig_service.search_markets("Corn")
         if len(df) > 0:
