@@ -23,6 +23,17 @@ from types import SimpleNamespace
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+def get_latest_close(ticker):
+    priceadjust = norgatedata.StockPriceAdjustmentType.NONE  # No adjustments for unadjusted prices
+    padding_setting = norgatedata.PaddingType.NONE
+    data = norgatedata.price_timeseries(
+                f"&{ticker}_CCB",  # Back-adjusted continuous contract
+                stock_price_adjustment_setting=priceadjust,
+                padding_setting=padding_setting,
+                timeseriesformat='pandas-dataframe'
+            )
+    return data['Close'].iloc[-1]
+
 def fetch_epics(ig_service):
     """Collect IG epics for configured instruments and save them to Excel.
 
@@ -50,12 +61,16 @@ def fetch_epics(ig_service):
             print(df)
             filtered_df = df[(df['instrumentType'] == 'CURRENCIES') | (df['instrumentType'] == 'INDICES') | (df['instrumentType'] == 'COMMODITIES') | (df['instrumentType'] == 'RATES')]
             if len(filtered_df) > 0:
+                norgate_close = get_latest_close(ticker)
                 for _, row in filtered_df.iterrows():
                     epics.append({
                         "epic": row['epic'],
                         "name": row['instrumentName'],
                         "instrumentType": row["instrumentType"],
-                        "norgate ticker": ticker
+                        "norgate ticker": ticker,
+                        "norgate close": norgate_close,
+                        "ig markets close": row['offer'],
+                        "difference between norgate and IG": abs(row['offer'] - norgate_close)
                         })
                 print(filtered_df)
                 #print(epics)
@@ -68,6 +83,8 @@ def fetch_epics(ig_service):
                 print("Hittade inga terminer för marknad:", term)
                 markets_that_got_no_result.append(term)
                 print(markets_that_got_no_result) 
+                df_markets_that_got_no_result = pd.DataFrame(markets_that_got_no_result)
+                df_markets_that_got_no_result.to_excel("markets_that_got_no_result.xlsx")  
         else:
             print("Hittade inte marknad:", term)
             markets_that_got_no_result.append(term)
