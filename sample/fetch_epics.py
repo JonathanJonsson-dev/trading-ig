@@ -63,14 +63,18 @@ def fetch_epics(ig_service):
             if len(filtered_df) > 0:
                 norgate_close = get_latest_close(ticker)
                 for _, row in filtered_df.iterrows():
+                    if row['offer'] == None:
+                        ig_close = abs(row['high'] - row['low']) / 2
+                    else:
+                        ig_close = row['offer']
                     epics.append({
                         "epic": row['epic'],
                         "name": row['instrumentName'],
                         "instrumentType": row["instrumentType"],
                         "norgate ticker": ticker,
                         "norgate close": norgate_close,
-                        "ig markets close": row['offer'],
-                        "difference between norgate and IG": abs(row['offer'] - norgate_close)
+                        "ig markets close": ig_close,
+                        "difference between norgate and IG": abs(ig_close - norgate_close)
                         })
                 print(filtered_df)
                 #print(epics)
