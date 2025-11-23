@@ -6,6 +6,7 @@ IG Markets REST API sample with Python
 2015 FemtoTrader
 """
 
+import math
 import norgatedata
 from trading_ig import IGService
 from trading_ig.config import config
@@ -67,15 +68,18 @@ def fetch_epics(ig_service):
                         ig_close = abs(row['high'] - row['low']) / 2
                     else:
                         ig_close = row['offer']
-                    epics.append({
-                        "epic": row['epic'],
-                        "name": row['instrumentName'],
-                        "instrumentType": row["instrumentType"],
-                        "norgate ticker": ticker,
-                        "norgate close": norgate_close,
-                        "ig markets close": ig_close,
-                        "difference between norgate and IG": abs(ig_close - norgate_close)
-                        })
+                    if math.isclose(ig_close, norgate_close, rel_tol=1e-3, abs_tol=0.1):
+                        print("Norgate close", norgate_close)
+                        print("IG close", ig_close)
+                        epics.append({
+                            "epic": row['epic'],
+                            "name": row['instrumentName'],
+                            "instrumentType": row["instrumentType"],
+                            "norgate ticker": ticker,
+                            "norgate close": norgate_close,
+                            "ig markets close": ig_close,
+                            "difference between norgate and IG": abs(ig_close - norgate_close)
+                            })
                 print(filtered_df)
                 #print(epics)
                 print("Antal epics i lista:", len(epics))
